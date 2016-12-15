@@ -1,4 +1,4 @@
-#!/usr/bin/env pythnon
+#!/usr/bin/env python
 #
 # This Program written with Kali linux In Mind, not Mac or Ubuntu	
 #
