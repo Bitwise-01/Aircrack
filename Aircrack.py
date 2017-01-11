@@ -187,7 +187,7 @@ def Main():
   cwd = os.getcwd()
   wlan = Args.interface
   engine = Engine(wlan)
-  wordlist = str(Args.wordlist)
+  wordlist = Args.wordlist
  
   # Validate Wordlist
   if not os.path.exists(wordlist):
