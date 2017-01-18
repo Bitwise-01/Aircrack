@@ -175,8 +175,9 @@ class Engine(object):
   def Exit(self):
     self.Clean('csv')
     self.Clean('cap')
-    call(['clear'])
-    exit()
+    time.sleep(1)
+    exit('\n')
+    
        
 def Main():
   # Assign Arugments
