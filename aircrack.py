@@ -130,11 +130,11 @@ class Aircrack(object):
  def readLog(self):
   if not os.path.exists(self.out):return
   with open(self.out) as aircrackOutput:
-   line = [line for line in aircrackOutput]
-   line = line[5].split()
-   line = [line for line in line[4]]
    try:
-    if eval(line[1]):
+    line = [line for line in aircrackOutput if '(1' in line.split()]
+   except IndexError:return
+   try:
+    if line:
      self.wait = False
    except NameError:return
 
@@ -154,7 +154,7 @@ class Aircrack(object):
   if ap['client']:
    self.atk = True
    [self.attack(mac) for n in range(3)]
-   time.sleep(5)
+   time.sleep(10)
    self.readCap()
    self.readLog()
    self.atk = False
@@ -240,8 +240,8 @@ def main():
    engine.target(mac,chann) # scan the target
    threading.Thread(target=engine.handshake).start() # look for handshake
 
-   # scan for 30 seconds before retry
-   for t in range(30):
+   # scan for 60 seconds before updating channel
+   for t in range(60):
     time.sleep(1)
     if not engine.wait:
      break
