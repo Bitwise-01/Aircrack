@@ -1,15 +1,14 @@
 # Date: 06/14/2017
 # Distro: Kali linux
 # Author: Ethical-H4CK3R
-# Description: Accesspoints handler
-#
-# imports
-import csv
-import time
-import subprocess
+# Description: Accesspoint handler
+
+from csv import reader
+from subprocess import Popen, call
 
 class Accesspoints(object):
- def __init__(self):
+ def __init__(self,essid=None):
+  self.essid = essid
   self.aps = {}
   self.mem = []
   self.map = []
@@ -17,11 +16,10 @@ class Accesspoints(object):
 
  def open(self,csvfile):
   with open(csvfile,'r') as csvfile:
-   self.csv = csv.reader(csvfile,delimiter = ',')
+   self.csv = reader(csvfile,delimiter = ',')
    self.organize()
    self.setMap()
    self.display()
-   time.sleep(1)
 
  def organize(self):
   for line in self.csv:
@@ -62,7 +60,7 @@ class Accesspoints(object):
    self.aps[bssid]['client'] = None
 
   # filter
-  if not chann.isdigit() or eval(chann.strip())==-1 or eval(power.strip())==-1:
+  if not chann.isdigit() or eval(chann)==-1 or eval(power)==-1:
    del self.aps[bssid]
    return
 
@@ -103,22 +101,33 @@ class Accesspoints(object):
 
   for num,mac in enumerate(self.mem):
    # assign
-   ap = self.aps[mac]
-   num = '{}   '.format(num) if len(str(num)) == 1 else '{}  '.format(num) if len(str(num)) == 2 else '{} '.format(num) if len(str(num)) == 3 else num
-   cnt = '*' if ap['client'] else '-'
-   chann = '{} '.format(ap['chann']) if len(ap['chann'])==1 else ap['chann']
+   try:
+    ap = self.aps[mac]
+   except KeyError:return
+   power = ap['power']
+   clnt = '*' if ap['client'] else '-'
+   essid = ap['essid'] if not self.essid else self.essid if self.essid != mac\
+   else ap['essid']
+
+   power = ' {} '.format(power) if len(str(power)) == 1 else '{} '.format(power)\
+   if len(str(power)) == 2 else power
+
+   num = '{}   '.format(num) if len(str(num)) == 1 else '{}  '.format(num)\
+   if len(str(num)) == 2 else '{} '.format(num) if len(str(num)) == 3 else num
 
    # first ouput
-   if not eval(num.strip()):
-    self.map.append('------------------------------------------------------------------------')
-    self.map.append('|| #    ||\t Bssid\t     || Channel ||  Power  || Client || Essid ||')
-    self.map.append('------------------------------------------------------------------------')
-    self.map.append('------------------------------------------------------------------------')
-   self.map.append('|| {} || {} ||    {}   ||   {}   ||    {}   || {}'.format(num,mac,chann,ap['power'],cnt,ap['essid']))
+   if not eval(num):
+    self.map.append('-------------------------------------------------------------')
+    self.map.append('|| num  ||\t Bssid\t     ||  Power  || Client || Essid ||')
+    self.map.append('-------------------------------------------------------------')
+    self.map.append('-------------------------------------------------------------')
+   self.map.append('|| {} || {} ||   {}   ||    {}   || {}'.format(num,mac,power,clnt,essid))
+   if len(self.mem)-1 == eval(num):
+    self.map.append('+-----------------------------------------------------------+')
   self.lst = [display for line in self.map for display in line]
 
  def display(self):
   if self.lst:
-   subprocess.call(['clear'])
+   call(['clear'])
    for line in self.map:
     print line

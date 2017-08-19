@@ -1,63 +1,36 @@
-# Date: 06/14/2017
+# Date: 07/20/2017
 # Distro: Kali linux
 # Author: Ethical-H4CK3R
 # Description: Interface handler
-#
-# imports
-import os
-import time
-import subprocess
+
+from os import devnull
+from subprocess import Popen
+from core.mac import Generator as macGen
 
 class Interface(object):
- def __init__(self):
-  self.iface = None
-  self.devnll = open(os.devnull,'w')
+ def __init__(self,iface):
+  self.wlan = iface
+  self.devnull  = open(devnull,'w')
+  self.mac = macGen().generate()
 
- def newMac(self):
-  self.run(['macchanger','-r','-b',self.iface])
+ def managedMode(self):
+  self.destroyInterface()
+  cmd = 'service network-manager restart'
+  Popen(cmd,stdout=self.devnull,stderr=self.devnull,shell=True).wait()
 
- def down(self):
-  self.run(['ifconfig',self.iface,'down'])
+ def changeMac(self):
+  cmd ='ifconfig mon0 down && iwconfig mon0 mode monitor &&\
+        macchanger -m {} mon0 && service\
+        network-manager stop && ifconfig mon0 up'.format(self.mac)
 
- def up(self):
-  self.run(['ifconfig',self.iface,'up'])
+  Popen(cmd,stdout=self.devnull,stderr=self.devnull,shell=True).wait()
 
- def stopNetwork(self):
-  self.run(['service','network-manager','stop'])
+ def monitorMode(self):
+  self.destroyInterface()
+  Popen('iw {} interface add mon0 type monitor'.format(self.wlan),
+  stdout=self.devnull,stderr=self.devnull,shell=True).wait()
+  self.changeMac()
 
- def startNetwork(self):
-  self.run(['service','network-manager','start'])
-
- def boost(self):
-  self.setCntry()
-  self.run(['iwconfig',self.iface,'txpower','30'])
-
- def setCntry(self):
-  self.run(['iw','reg','set','BO'])
-
- def monitor(self):
-  self.run(['iwconfig',self.iface,'mode','monitor'])
-
- def managed(self):
-  self.run(['iw','dev',self.iface,'del'])
-  time.sleep(1)
-  self.run(['iw','phy','phy0','interface','add',self.iface,'type','managed'])
-
- def monitorMode(self,iface):
-  self.iface = iface
-  self.down()
-  self.boost()
-  self.newMac()
-  self.monitor()
-  self.stopNetwork()
-  self.up()
-
- def managedMode(self,iface):
-  self.iface = iface
-  self.down()
-  self.managed()
-  self.startNetwork()
-  self.up()
-
- def run(self,cmd):
-  subprocess.Popen(cmd,stdout=self.devnll,stderr=self.devnll).wait()
+ def destroyInterface(self):
+  Popen('iw dev mon0 del',stdout=self.devnull,
+  stderr=self.devnull,shell=True).wait()
