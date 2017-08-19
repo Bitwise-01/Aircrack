@@ -17,15 +17,15 @@ from core.accesspoints import Accesspoints as accesspoints
 class Aircrack(object):
  def __init__(self,iface):
   self.devnull = open(os.devnull,'w')
-  self.iface   = iface
-  self.wait    = None # wait for handshake
-  self.run     = True
-  self.atk     = None
-  self.out     = 'data-01.out'
-  self.csv     = 'data-01.csv'
-  self.cap     = 'data-01.cap'
-  self.ap      = accesspoints()
-  self.iw      = interface()
+  self.iface = iface
+  self.wait = None
+  self.run = True
+  self.atk = None
+  self.out = 'data-01.out'
+  self.csv = 'data-01.csv'
+  self.cap = 'data-01.cap'
+  self.ap  = accesspoints()
+  self.iw  = interface(self.iface)
 
  def load(self,ssid=None):
   # scanning ...
@@ -66,7 +66,8 @@ class Aircrack(object):
  def startScan(self):
   self.kill()
   self.remove()
-  self.iw.monitorMode(self.iface)
+  self.iw.monitorMode()
+  self.iface = 'mon0'
   threading.Thread(target=self.load).start()
   self.scan()
 
@@ -104,7 +105,7 @@ class Aircrack(object):
  def aircrack(self,mac,passlist):
   os.chdir(base) # change directory back
   self.exit(False)
-  self.iw.managedMode(self.iface)
+  self.iw.managedMode()
 
   capFile = '/tmp/{}'.format(self.cap)
   cmd = ['aircrack-ng',capFile,'-w',passlist]
@@ -177,7 +178,7 @@ class Aircrack(object):
    self.run = True
    threading.Thread(target=self.exitMsg).start()
   try:
-   self.iw.managedMode(self.iface)
+   self.iw.managedMode()
   finally:
    self.run = False
   if kill:
@@ -207,7 +208,7 @@ def main():
 
  # display
  while 1:
-  try:engine.display()
+  try:engine.display();time.sleep(.5)
   except KeyboardInterrupt:
    if not engine.ap.aps:
     engine.run = False
@@ -255,7 +256,7 @@ def main():
   except KeyboardInterrupt:
    engine.exit()
 
- # start brute force
+ # start dictionary attack
  engine.aircrack(mac,wordlist)
 
 if __name__ == '__main__':
